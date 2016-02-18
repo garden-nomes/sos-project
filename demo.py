@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 from pyphen import Pyphen
 from time import sleep
 
+# settings
+TEXT_WIDTH = 80
+
 # set up hypenator dictionary
 hyph = Pyphen(lang='en_US')
 
@@ -39,21 +42,29 @@ def print_word(word):
         print(word),
         
 def print_string(string):
+    line_chars = 0
     words = string.split(' ')
+
     for word in words:
         print_word(word)
-    print # newline
+
+        # wrap text
+        line_chars += len(word) + 1
+        if (line_chars > TEXT_WIDTH) and word != words[-1]:
+            print
+            line_chars = 0
+
+    print
 
 def analyze_feed(url):
     feed = feedparser.parse(url)
-    print(feed.feed.title + '\n')
+    print('\n\t' + feed.feed.title + '\n')
     for entry in feed.entries:
         # print title
         print_string(entry.title)
         print('-' * len(entry.title))
 
         # print body
-        print
         text = BeautifulSoup(entry.content[0].value, 'html.parser').get_text()
         print_string(text)
         print
