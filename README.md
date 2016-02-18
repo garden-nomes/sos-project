@@ -1,6 +1,5 @@
 # SOS Project
 
-Noah Weiner
 Right now, this project displays an RSS feed with musical accompaniment, using syllabes per word for rhythmic input.
 
 ### Dependencies
