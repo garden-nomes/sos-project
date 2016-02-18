@@ -78,7 +78,6 @@ recv.event("/demo/rhythm/subdiv,i") @=> OscEvent msg_received;
 while (msg_received => now) {
 	while (msg_received.nextMsg() != 0) {
 		msg_received.getInt() => int subDiv;
-		<<< subDiv >>>;
 		
 		for (0 => int j; j < subDiv; j++) {
 			changeNote();
