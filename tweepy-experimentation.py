@@ -3,22 +3,23 @@ import time
 import sys
 import json
 
-from numpy import mean, std, interp
 import tweepy
+import OSC
+from numpy import mean, std, interp
 
-access_token = "1281571783-BkkijSiyc7FFxXUmjqYUDzSq4eafSkFVujxDbsL"
-access_token_secret = "LRgJk7HTtRMsPgp8QFzCkFra25BiCghqaP0S28mMdQxXw"
-consumer_key = "mOxISQevRFV4qlUL2BJTL9pAv"
-consumer_secret = "5MbnCpt8KZcGuev4gPdDROqw0QRyb6mpHR1fUWdbzDrsRlEIqB"
+access_token = '1281571783-BkkijSiyc7FFxXUmjqYUDzSq4eafSkFVujxDbsL'
+access_token_secret = 'LRgJk7HTtRMsPgp8QFzCkFra25BiCghqaP0S28mMdQxXw'
+consumer_key = 'mOxISQevRFV4qlUL2BJTL9pAv'
+consumer_secret = '5MbnCpt8KZcGuev4gPdDROqw0QRyb6mpHR1fUWdbzDrsRlEIqB'
 
-BIG_WINDOW = 1000
-LITTLE_WINDOW = 20
+BIG_WINDOW = 5000
+LITTLE_WINDOW = 10
 
 class KeywordListener(tweepy.StreamListener):
-    """Twitter listener that performs statistical analysis
+    '''Twitter listener that performs statistical analysis
     on a the frequencies of a single twitter keyword.
-    """
-    def __init__(self, keyword, auth):
+    '''
+    def __init__(self, keyword, address, auth):
         # call StreamListener init
         super(KeywordListener, self).__init__()
 
@@ -26,6 +27,8 @@ class KeywordListener(tweepy.StreamListener):
         self.keyword = keyword
         self.last_hit = None
         self.hits = []
+        self.freq = None
+        self.address = address
 
         # start listener
         self.stream = tweepy.Stream(auth, self)
@@ -46,12 +49,7 @@ class KeywordListener(tweepy.StreamListener):
                 self.hits = self.hits[-BIG_WINDOW:]
 
             if len(self.hits) > LITTLE_WINDOW:
-                stdDev = std(self.hits)
-                avg = mean(self.hits)
-                lower = avg - 2 * stdDev
-                upper = avg + 2 * stdDev
-                print(interp(mean(self.hits[-LITTLE_WINDOW:]), [lower, upper], [0, 1]))
-
+                self._recompute()
 
         return True
 
@@ -59,9 +57,33 @@ class KeywordListener(tweepy.StreamListener):
         print(status)
         self.stream.disconnect()
 
+    def _recompute(self):
+        stdDev = std(self.hits)
+        avg = mean(self.hits)
+        lower = avg - stdDev
+        upper = avg + stdDev
+        self.freq = interp(mean(self.hits[-LITTLE_WINDOW:]), [lower, upper], [0, 1])
+        send(self.address, self.freq)
+
 keywords = [
-    "Bernie Sanders",
+    ('Bernie Sanders', '/snare/intensity'),
+    ('Donald Trump', '/kick/intensity')
 ]
+
+listeners = []
+client = None
+
+def send(address, data):
+    msg = OSC.OSCMessage()
+    msg.setAddress(address)
+    msg.append(data)
+    client.send(msg)
+
+def printFreqs():
+    threading.Timer(1.0, printFreqs).start()
+    for listener in listeners:
+        if listener.freq is not None:
+            print('%s: %f' % (listener.keyword, listener.freq))
 
 if __name__ == '__main__':
     listeners = []
@@ -69,9 +91,13 @@ if __name__ == '__main__':
     auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
 
+    client = OSC.OSCClient()
+    client.connect(('localhost', 6449))
+
     # for arg in sys.argv[1:]:
-        # print("Creating listener for %s..." % arg)
+        # print('Creating listener for %s...' % arg)
         # listeners.append(KeywordListener(arg, auth))
     for keyword in keywords:
-        listeners.append(KeywordListener(keyword, auth))
+        listeners.append(KeywordListener(keyword[0], keyword[1], auth))
 
+    printFreqs()
